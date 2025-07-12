@@ -103,13 +103,34 @@ $launchBtn.Add_Click({
             return
         }
 
-        $modLinks = @()
-        foreach ($id in $mods) {
-            $modPath = Join-Path $WorkshopDir $id
-            if (-Not (Test-Path $modPath)) {
-                Log "❗ Mod $id manquant. Abonne-toi sur Steam."
-                continue
-            }
+        $modManquant = $false
+		$modLinks = @()
+
+		foreach ($id in $mods) {
+			$modPath = Join-Path $WorkshopDir $id
+			if (-Not (Test-Path $modPath)) {
+				Log "❗ Mod $id manquant. Abonne-toi sur Steam."
+				$modManquant = $true
+				break
+			}
+
+			$Bytes = [BitConverter]::GetBytes([UInt32]::Parse($id))
+			$Base64 = [Convert]::ToBase64String($Bytes).TrimEnd("=").Replace('+','_').Replace('/','-')
+			$LinkName = "@$Base64"
+			$LinkPath = Join-Path $GameDir $LinkName
+
+			if (-Not (Test-Path $LinkPath)) {
+				New-Item -ItemType SymbolicLink -Path $LinkPath -Target $modPath | Out-Null
+				Log "⛓️ Lien créé : $LinkName"
+			}
+
+			$modLinks += $LinkName
+		}
+
+		if ($modManquant) {
+			Log "❌ Impossible de lancer le jeu : mod(s) manquant(s)."
+			return
+		}
 
             $Bytes = [BitConverter]::GetBytes([UInt32]::Parse($id))
             $Base64 = [Convert]::ToBase64String($Bytes).TrimEnd("=").Replace('+','_').Replace('/','-')
@@ -137,7 +158,11 @@ $launchBtn.Add_Click({
 		Start-Process -FilePath $GameExe -ArgumentList $Args
 
 		for ($i = 10; $i -ge 1; $i--) {
-			$logBox.AppendText("`nFermeture du launcher dans $i...")
+			if ($i -eq 10) {
+				$logBox.AppendText("`nFermeture du launcher dans $i...")
+			} else {
+				$logBox.AppendText("`n$i")
+			}
 			Start-Sleep -Seconds 1
 		}
 		$form.Close()
