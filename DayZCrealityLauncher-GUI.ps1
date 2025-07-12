@@ -97,19 +97,22 @@ $launchBtn.Add_Click({
     Log "Requête serveur..."
     try {
         $response = Invoke-RestMethod -Uri $ApiUrl -TimeoutSec 10 -Headers @{ "User-Agent" = "dayz-windows-launcher" }
-        $mods = $response.result.mods | Select-Object -ExpandProperty steamWorkshopId
-        if ($mods.Count -eq 0) {
-            Log "Aucun mod détecté."
-            return
-        }
+		$mods = $response.result.mods  # récupère les objets complets, pas juste les IDs
+		if ($mods.Count -eq 0) {
+			Log "Aucun mod détecté."
+			return
+		}
 
-        $modManquant = $false
+		$modManquant = $false
 		$modLinks = @()
 
-		foreach ($id in $mods) {
+		foreach ($mod in $mods) {
+			$id = $mod.steamWorkshopId
+			$nameMod = $mod.name  # ou $mod.title si c'est ainsi que ça s'appelle dans la réponse API
+
 			$modPath = Join-Path $WorkshopDir $id
 			if (-Not (Test-Path $modPath)) {
-				Log "❗ Mod $id manquant. Abonne-toi sur Steam."
+				Log "❗ Mod manquant : $nameMod ($id). Abonne-toi sur Steam."
 				$modManquant = $true
 				break
 			}
@@ -132,19 +135,6 @@ $launchBtn.Add_Click({
 			return
 		}
 
-            $Bytes = [BitConverter]::GetBytes([UInt32]::Parse($id))
-            $Base64 = [Convert]::ToBase64String($Bytes).TrimEnd("=").Replace('+','_').Replace('/','-')
-            $LinkName = "@$Base64"
-            $LinkPath = Join-Path $GameDir $LinkName
-
-            if (-Not (Test-Path $LinkPath)) {
-                New-Item -ItemType SymbolicLink -Path $LinkPath -Target $modPath | Out-Null
-                Log "⛓️ Lien créé : $LinkName"
-            }
-
-            $modLinks += $LinkName
-        }
-
         $ModsStr = ($modLinks -join ";")
         $Args = "-mod=$ModsStr -connect=$Server -name=$Name -world=empty"
 
@@ -155,17 +145,17 @@ $launchBtn.Add_Click({
         }
 
         Log "✅ Lancement de DayZ avec BattleEye..."
-		Start-Process -FilePath $GameExe -ArgumentList $Args
+        Start-Process -FilePath $GameExe -ArgumentList $Args
 
-		for ($i = 10; $i -ge 1; $i--) {
-			if ($i -eq 10) {
-				$logBox.AppendText("`nFermeture du launcher dans $i...")
-			} else {
-				$logBox.AppendText("`n$i")
-			}
-			Start-Sleep -Seconds 1
-		}
-		$form.Close()
+        for ($i = 10; $i -ge 1; $i--) {
+            if ($i -eq 10) {
+                $logBox.AppendText("`nFermeture du launcher dans $i...")
+            } else {
+                $logBox.AppendText("`n$i")
+            }
+            Start-Sleep -Seconds 1
+        }
+        $form.Close()
 
     } catch {
         Log "❌ Erreur : $_"
