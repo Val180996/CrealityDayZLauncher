@@ -1,0 +1,31 @@
+name: Build EXE
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install ps2exe
+      shell: powershell
+      run: Install-Module -Name ps2exe -Force -Scope CurrentUser
+
+    - name: Compile launcher.ps1 to .exe
+      shell: powershell
+      run: |
+        Invoke-ps2exe -inputFile .\DayZCrealityLauncher-GUI.ps1 `
+                      -outputFile .\CrealityLauncher.exe `
+                      -iconFile .\logo-Le-Vrai-Geudin.ico `
+                      -noConsole `
+                      -title "Creality DayZ Launcher"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: creality-launcher
+        path: CrealityLauncher.exe
